@@ -46,6 +46,13 @@ This project is an AI-powered stock analysis dashboard that provides real-time s
 3. Click "Fetch Data" to retrieve and display the stock analysis.
 4. Use the chat feature to ask specific questions about the stock.
 
+## Screenshots
+
+Here are some screenshots of the AI-powered stock analysis dashboard:
+
+![Screenshot 1](screenshots/Screen1.PNG)
+![Screenshot 2](screenshots/Screen2.PNG)
+
 ## Contributing
 
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
@@ -55,13 +62,4 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 [MIT](https://choosealicense.com/licenses/mit/)
 
 
-
-```markdown
-## Screenshots
-
-Here are some screenshots of the AI-powered stock analysis dashboard:
-
-![Screenshot 1](/workspaces/stockcopilot/screenshots/Screen1.PNG)
-![Screenshot 2](/workspaces/stockcopilot/screenshots/Screen2.PNG)
-```
-
+## Created by Alex Proschkin

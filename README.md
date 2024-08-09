@@ -57,6 +57,6 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 ## Screenshots
 
 ```markdown
-![Screenshot](screenshots/Screen1.png)
-![Screenshot](screenshots/Screen2.png)
+![Screenshot](/workspaces/stockcopilot/screenshots/Screen1.PNG)
+![Screenshot](/workspaces/stockcopilot/screenshots/Screen2.PNG)
 ```

@@ -1,0 +1,20 @@
+ai-stock-analysis/
+│
+├── app/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── callbacks.py
+│   ├── layout.py
+│   └── utils.py
+│
+├── static/
+│   └── custom.css
+│
+├── templates/
+│   └── index.html
+│
+├── .gitignore
+├── Procfile
+├── README.md
+├── requirements.txt
+└── run.py

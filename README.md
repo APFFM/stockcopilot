@@ -54,9 +54,14 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 
 [MIT](https://choosealicense.com/licenses/mit/)
 
-## Screenshots
+
 
 ```markdown
-![Screenshot](/workspaces/stockcopilot/screenshots/Screen1.PNG)
-![Screenshot](/workspaces/stockcopilot/screenshots/Screen2.PNG)
+## Screenshots
+
+Here are some screenshots of the AI-powered stock analysis dashboard:
+
+![Screenshot 1](/workspaces/stockcopilot/screenshots/Screen1.PNG)
+![Screenshot 2](/workspaces/stockcopilot/screenshots/Screen2.PNG)
 ```
+

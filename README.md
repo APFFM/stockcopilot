@@ -14,7 +14,7 @@ This is my first public project which is an AI-powered (Claude API) stock analys
 1. Clone the repository:
 
     ```sh
-    git clone https://github.com/yourusername/ai-stock-analysis.git
+    git clone https://github.com/APFFM/ai-stock-analysis.git
     cd ai-stock-analysis
     ```
 

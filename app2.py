@@ -6,76 +6,141 @@ import plotly.graph_objs as go
 import yfinance as yf
 from dash.exceptions import PreventUpdate
 import anthropic
-#from google.colab import output
 import os
 
 # Set up Claude API
 key = os.getenv("ANT")
 claude = anthropic.Client(api_key=key)
 
-# Initialize the Dash app
+# Custom CSS for enhanced styling
+custom_css = """
+body {
+    background-color: #f7f8fc;
+    font-family: 'Arial', sans-serif;
+}
+.card-header {
+    background-color: #3c4a69;
+    color: white;
+}
+.card {
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+    border: none;
+    margin-bottom: 20px;
+}
+.card-body {
+    background-color: #ffffff;
+}
+h1, h3 {
+    color: #3c4a69;
+    font-weight: 700;
+}
+.btn-primary {
+    background-image: linear-gradient(to right, #6a11cb, #2575fc);
+    border: none;
+}
+.btn-success {
+    background-image: linear-gradient(to right, #00c6ff, #0072ff);
+    border: none;
+}
+.mb-4, .my-4 {
+    margin-bottom: 1.5rem!important;
+}
+"""
+
+# Initialize the Dash app with Bootstrap theme and custom CSS
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+app.css.append_css({"external_url": "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"})
 
 # Define the layout
 app.layout = dbc.Container([
-    html.H1("AI-Powered Stock Analysis Dashboard", className="my-4"),
+    html.H1("AI-Powered Stock Analysis Dashboard", className="my-4 text-center"),
+
     dbc.Row([
         dbc.Col([
-            dcc.Input(id='stock-ticker-input', type='text', placeholder='Enter stock ticker (e.g., AAPL)', className='form-control mb-2'),
+            dbc.InputGroup([
+                dbc.InputGroupText("Stock Ticker", className="input-label"),
+                dbc.Input(id='stock-ticker-input', type='text', placeholder='Enter stock ticker (e.g., AAPL)', className='form-control mb-2'),
+            ]),
         ], width=4),
         dbc.Col([
-            dcc.Dropdown(
-                id='time-period-dropdown',
-                options=[
-                    {'label': '1 Month', 'value': '1mo'},
-                    {'label': '3 Months', 'value': '3mo'},
-                    {'label': '6 Months', 'value': '6mo'},
-                    {'label': '1 Year', 'value': '1y'},
-                    {'label': '5 Years', 'value': '5y'},
-                ],
-                value='1mo',
-                className='mb-2'
-            ),
+            dbc.InputGroup([
+                dbc.InputGroupText("Time Period", className="input-label"),
+                dcc.Dropdown(
+                    id='time-period-dropdown',
+                    options=[
+                        {'label': '1 Month', 'value': '1mo'},
+                        {'label': '3 Months', 'value': '3mo'},
+                        {'label': '6 Months', 'value': '6mo'},
+                        {'label': '1 Year', 'value': '1y'},
+                        {'label': '5 Years', 'value': '5y'},
+                    ],
+                    value='1mo',
+                    className='mb-2'
+                ),
+            ]),
         ], width=4),
         dbc.Col([
-            dbc.Button('Fetch Data', id='fetch-data-button', color='primary', className='mb-2'),
+            dbc.Button('Fetch Data', id='fetch-data-button', color='primary', className='mb-2 w-100 btn-lg'),
         ], width=4),
+    ], className='mb-4'),
+
+    dbc.Row([
+        dbc.Col([
+            dbc.Card([
+                dbc.CardHeader("Stock Price Chart", className="text-center"),
+                dbc.CardBody(dcc.Loading(dcc.Graph(id='stock-price-chart', config={'displayModeBar': False}), type='circle'))
+            ]),
+        ], width=12),
     ]),
+
     dbc.Row([
         dbc.Col([
-            dcc.Graph(id='stock-price-chart'),
-        ], width=12),
-    ], className='mb-4'),
-    dbc.Row([
-        dbc.Col([
-            dcc.Graph(id='returns-chart'),
+            dbc.Card([
+                dbc.CardHeader("Returns Chart", className="text-center"),
+                dbc.CardBody(dcc.Loading(dcc.Graph(id='returns-chart', config={'displayModeBar': False}), type='circle'))
+            ]),
         ], width=6),
         dbc.Col([
-            dcc.Graph(id='volume-chart'),
+            dbc.Card([
+                dbc.CardHeader("Volume Chart", className="text-center"),
+                dbc.CardBody(dcc.Loading(dcc.Graph(id='volume-chart', config={'displayModeBar': False}), type='circle'))
+            ]),
         ], width=6),
-    ], className='mb-4'),
+    ]),
+
     dbc.Row([
         dbc.Col([
-            html.Div(id='stock-summary', className='p-3 bg-light'),
+            dbc.Card([
+                dbc.CardHeader("Stock Summary", className="text-center"),
+                dbc.CardBody(dcc.Loading(html.Div(id='stock-summary'), type='circle')),
+            ]),
         ], width=12),
-    ], className='mb-4'),
+    ]),
+
     dbc.Row([
         dbc.Col([
-            html.H3("AI-Powered Analysis", className="mb-3"),
-            html.Div(id='ai-analysis', className='p-3 bg-light'),
+            dbc.Card([
+                dbc.CardHeader("AI-Powered Analysis", className="text-center"),
+                dbc.CardBody(dcc.Loading(html.Div(id='ai-analysis'), type='circle')),
+            ]),
         ], width=12),
-    ], className='mb-4'),
+    ]),
+
     dbc.Row([
         dbc.Col([
-            html.H3("Stock Chat", className="mb-3"),
-            dcc.Input(id='chat-input', type='text', placeholder='Ask a question about the stock...', className='form-control mb-2'),
-            dbc.Button('Ask', id='chat-button', color='success', className='mb-2'),
-            html.Div(id='chat-output', className='p-3 bg-light'),
+            dbc.Card([
+                dbc.CardHeader("Stock Chat", className="text-center"),
+                dbc.CardBody([
+                    dcc.Input(id='chat-input', type='text', placeholder='Ask a question about the stock...', className='form-control mb-2'),
+                    dbc.Button('Ask', id='chat-button', color='success', className='mb-2 w-100 btn-lg'),
+                    html.Div(id='chat-output', className='p-3 bg-light'),
+                ]),
+            ]),
         ], width=12),
-    ], className='mb-4'),
+    ]),
 ], fluid=True)
 
-# Data processing functions
+# Data processing functions remain unchanged
 def fetch_stock_data(ticker, period="1mo"):
     try:
         stock = yf.Ticker(ticker)
@@ -234,5 +299,3 @@ def update_chat(n_clicks, question, ticker):
 # Run the app
 if __name__ == '__main__':
     app.run_server(debug=True)
-
-#output.clear()

@@ -13,20 +13,30 @@ This project is an AI-powered stock analysis dashboard that provides real-time s
 
 1. Clone the repository:
 
-git clone https://github.com/yourusername/ai-stock-analysis.git
-cd ai-stock-analysis
-
+    ```sh
+    git clone https://github.com/yourusername/ai-stock-analysis.git
+    cd ai-stock-analysis
+    ```
 
 2. Install the required packages:
-pip install -r requirements.txt
-Copy
+
+    ```sh
+    pip install -r requirements.txt
+    ```
+
 3. Set up environment variables:
-Create a `.env` file in the root directory and add your Anthropic API key:
-ANT=your_anthropic_api_key
-Copy
+    Create a `.env` file in the root directory and add your Anthropic API key:
+
+    ```sh
+    echo "ANT=your_anthropic_api_key" > .env
+    ```
+
 4. Run the application:
-python run.py
-Copy
+
+    ```sh
+    python app2.py
+    ```
+
 5. Open a web browser and navigate to `http://localhost:8050`
 
 ## Usage

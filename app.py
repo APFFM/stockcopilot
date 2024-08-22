@@ -160,7 +160,7 @@ def calculate_rsi(prices, period=14):
 
 def get_sector_performance(sector):
     # This is a placeholder. In a real-world scenario, you'd fetch actual sector data
-    sectors = ['Technology', 'Healthcare', 'Finance', 'Energy', 'Consumer Goods']
+    sectors = ['SPY', 'NASDAQ', 'DOW', 'FTSE', 'DAX', 'NIKKEI']
     performances = np.random.uniform(-5, 5, len(sectors))
     return dict(zip(sectors, performances))
 

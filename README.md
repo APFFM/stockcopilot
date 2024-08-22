@@ -1,6 +1,6 @@
 # AI-Powered Stock Analysis Dashboard
 
-This project is an AI-powered stock analysis dashboard that provides real-time stock data, technical analysis, and AI-generated insights.
+This is my first public project which is an AI-powered (Claude API) stock analysis dashboard that provides real-time stock data, technical analysis, and AI-generated insights.
 
 ## Features
 
@@ -14,7 +14,7 @@ This project is an AI-powered stock analysis dashboard that provides real-time s
 1. Clone the repository:
 
     ```sh
-    git clone https://github.com/yourusername/ai-stock-analysis.git
+    git clone https://github.com/APFFM/ai-stock-analysis.git
     cd ai-stock-analysis
     ```
 

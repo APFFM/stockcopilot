@@ -1,238 +1,286 @@
-import dash
-from dash import dcc, html, Input, Output, State
-import dash_bootstrap_components as dbc
-import pandas as pd
-import plotly.graph_objs as go
+from flask import Flask, render_template, request, jsonify
 import yfinance as yf
-from dash.exceptions import PreventUpdate
-import anthropic
-#from google.colab import output
 import os
+from dotenv import load_dotenv
+import requests
+import pandas as pd
+from datetime import datetime, timedelta
+from textblob import TextBlob
+import numpy as np
+from concurrent.futures import ThreadPoolExecutor
+import anthropic
 
-# Set up Claude API
-key = os.getenv("ANT")
-claude = anthropic.Client(api_key=key)
+app = Flask(__name__)
 
-# Initialize the Dash app
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+load_dotenv()
+CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY")
+NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 
-# Define the layout
-app.layout = dbc.Container([
-    html.H1("AI-Powered Stock Analysis Dashboard", className="my-4"),
-    dbc.Row([
-        dbc.Col([
-            dcc.Input(id='stock-ticker-input', type='text', placeholder='Enter stock ticker (e.g., AAPL)', className='form-control mb-2'),
-        ], width=4),
-        dbc.Col([
-            dcc.Dropdown(
-                id='time-period-dropdown',
-                options=[
-                    {'label': '1 Month', 'value': '1mo'},
-                    {'label': '3 Months', 'value': '3mo'},
-                    {'label': '6 Months', 'value': '6mo'},
-                    {'label': '1 Year', 'value': '1y'},
-                    {'label': '5 Years', 'value': '5y'},
-                ],
-                value='1mo',
-                className='mb-2'
-            ),
-        ], width=4),
-        dbc.Col([
-            dbc.Button('Fetch Data', id='fetch-data-button', color='primary', className='mb-2'),
-        ], width=4),
-    ]),
-    dbc.Row([
-        dbc.Col([
-            dcc.Graph(id='stock-price-chart'),
-        ], width=12),
-    ], className='mb-4'),
-    dbc.Row([
-        dbc.Col([
-            dcc.Graph(id='returns-chart'),
-        ], width=6),
-        dbc.Col([
-            dcc.Graph(id='volume-chart'),
-        ], width=6),
-    ], className='mb-4'),
-    dbc.Row([
-        dbc.Col([
-            html.Div(id='stock-summary', className='p-3 bg-light'),
-        ], width=12),
-    ], className='mb-4'),
-    dbc.Row([
-        dbc.Col([
-            html.H3("AI-Powered Analysis", className="mb-3"),
-            html.Div(id='ai-analysis', className='p-3 bg-light'),
-        ], width=12),
-    ], className='mb-4'),
-    dbc.Row([
-        dbc.Col([
-            html.H3("Stock Chat", className="mb-3"),
-            dcc.Input(id='chat-input', type='text', placeholder='Ask a question about the stock...', className='form-control mb-2'),
-            dbc.Button('Ask', id='chat-button', color='success', className='mb-2'),
-            html.Div(id='chat-output', className='p-3 bg-light'),
-        ], width=12),
-    ], className='mb-4'),
-], fluid=True)
+client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
 
-# Data processing functions
-def fetch_stock_data(ticker, period="1mo"):
+@app.route('/')
+def index():
+    return render_template('index.html')
+@app.route('/get_stock_data', methods=['POST'])
+def get_stock_data():
+    ticker = request.form['ticker']
+    stock = yf.Ticker(ticker)
+    
+    info = stock.info
+    history = stock.history(period="1y")
+    
+    # Calculate additional metrics
+    sma_50 = history['Close'].rolling(window=50).mean().iloc[-1]
+    sma_200 = history['Close'].rolling(window=200).mean().iloc[-1]
+    rsi = calculate_rsi(history['Close'])
+    
+    # Get sector data
+    sector_performance = get_sector_performance(info.get('sector'))
+    
+    # Get news and sentiment
+    news, sentiment = get_news_and_sentiment(ticker)
+    
+    # Get financial metrics
+    financial_metrics = get_financial_metrics(stock)
+    
+    # Get competitor analysis
+    competitor_analysis = get_competitor_analysis(stock)
+    
+    data = {
+        'name': info.get('longName', 'N/A'),
+        'price': info.get('currentPrice', 'N/A'),
+        'change': info.get('regularMarketChangePercent', 'N/A'),
+        'volume': info.get('volume', 'N/A'),
+        'market_cap': info.get('marketCap', 'N/A'),
+        'pe_ratio': info.get('trailingPE', 'N/A'),
+        'forward_pe': info.get('forwardPE', 'N/A'),
+        'dividend_yield': info.get('dividendYield', 'N/A'),
+        'beta': info.get('beta', 'N/A'),
+        'historical_data': history['Close'].tolist(),
+        'historical_dates': history.index.strftime('%Y-%m-%d').tolist(),
+        'sma_50': sma_50,
+        'sma_200': sma_200,
+        'rsi': rsi,
+        'sector_performance': sector_performance,
+        'news': news,
+        'sentiment': sentiment,
+        'financial_metrics': financial_metrics,
+        'competitors': competitor_analysis,
+        'fiftyTwoWeekHigh': info.get('fiftyTwoWeekHigh', 'N/A'),
+        'fiftyTwoWeekLow': info.get('fiftyTwoWeekLow', 'N/A'),
+        'fiftyDayAverage': info.get('fiftyDayAverage', 'N/A'),
+        'twoHundredDayAverage': info.get('twoHundredDayAverage', 'N/A'),
+        'averageVolume': info.get('averageVolume', 'N/A'),
+        'eps': info.get('trailingEps', 'N/A'),
+    }
+    
+    return jsonify(data)
+
+@app.route('/get_full_analysis', methods=['POST'])
+def get_full_analysis():
+    ticker = request.form['ticker']
     try:
         stock = yf.Ticker(ticker)
-        df = stock.history(period=period)
-        df.reset_index(inplace=True)
-        df['Date'] = pd.to_datetime(df['Date'])
-        return df, stock.info, None
+        info = stock.info
+        
+        with ThreadPoolExecutor() as executor:
+            financial_future = executor.submit(get_financial_analysis, stock)
+            technical_future = executor.submit(get_technical_analysis, stock)
+            news_sentiment_future = executor.submit(get_news_and_sentiment, ticker)
+            competitor_future = executor.submit(get_competitor_analysis, stock)
+        
+        financial_analysis = financial_future.result()
+        technical_analysis = technical_future.result()
+        news, sentiment = news_sentiment_future.result()
+        competitor_analysis = competitor_future.result()
+        
+        full_analysis_prompt = f"""
+        Provide a comprehensive analysis for {info.get('longName', ticker)} (Ticker: {ticker}):
+
+        1. Company Overview:
+        {info.get('longBusinessSummary', 'No business summary available.')}
+
+        2. Financial Analysis:
+        {financial_analysis}
+
+        3. Technical Analysis:
+        {technical_analysis}
+
+        4. News Sentiment:
+        Overall sentiment: {sentiment['overall']:.2f} (-1 to 1 scale)
+        Positive: {sentiment['positive']}, Neutral: {sentiment['neutral']}, Negative: {sentiment['negative']}
+
+        5. Competitor Analysis:
+        {competitor_analysis}
+
+        6. Recent News Headlines:
+        {' '.join([f"- {item['title']}" for item in news[:3]])}
+
+        Based on this information, provide:
+        1. A summary of the company's current position
+        2. Key strengths and weaknesses
+        3. Potential opportunities and threats
+        4. A short-term outlook (next 3-6 months)
+        5. A long-term outlook (1-3 years)
+        6. Recommendations for investors (buy, hold, or sell, with reasoning)
+
+        Please provide a balanced analysis, considering both bullish and bearish perspectives.
+        """
+        
+        try:
+            message = client.messages.create(
+                model="claude-3-opus-20240229",
+                max_tokens=4000,
+                temperature=0,
+                messages=[
+                    {"role": "user", "content": full_analysis_prompt}
+                ]
+            )
+            ai_analysis = message.content[0].text
+        except Exception as e:
+            ai_analysis = f"Unable to generate AI analysis. Error: {str(e)}"
+        
+        return jsonify({
+            "analysis": ai_analysis,
+            "financials": financial_analysis,
+            "technicals": technical_analysis,
+            "news": news,
+            "sentiment": sentiment,
+            "competitors": competitor_analysis
+        })
     except Exception as e:
-        return None, None, str(e)
+        return jsonify({"error": str(e)}), 500
 
-def calculate_returns(df):
-    df['Daily_Return'] = df['Close'].pct_change()
-    df['Cumulative_Return'] = (1 + df['Daily_Return']).cumprod() - 1
-    return df
+def calculate_rsi(prices, period=14):
+    delta = prices.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+    rs = gain / loss
+    return 100 - (100 / (1 + rs.iloc[-1]))
 
-def calculate_moving_averages(df, windows=[20, 50]):
-    for window in windows:
-        df[f'MA_{window}'] = df['Close'].rolling(window=window).mean()
-    return df
+def get_sector_performance(sector):
+    # This is a placeholder. In a real-world scenario, you'd fetch actual sector data
+    sectors = ['Technology', 'Healthcare', 'Finance', 'Energy', 'Consumer Goods']
+    performances = np.random.uniform(-5, 5, len(sectors))
+    return dict(zip(sectors, performances))
 
-def prepare_stock_data(ticker, period="1mo"):
-    df, info, error = fetch_stock_data(ticker, period)
-    if error:
-        return None, None, error
+def get_news_and_sentiment(ticker):
+    url = f"https://newsapi.org/v2/everything?q={ticker}&apiKey={NEWS_API_KEY}"
+    response = requests.get(url)
+    articles = response.json().get('articles', [])[:10]  # Get top 10 articles
     
-    df = calculate_returns(df)
-    df = calculate_moving_averages(df)
-    return df, info, None
+    news = [{'title': article['title'], 'url': article['url'], 'date': article['publishedAt']} for article in articles]
+    
+    sentiment_scores = [TextBlob(article['title']).sentiment.polarity for article in articles]
+    overall_sentiment = sum(sentiment_scores) / len(sentiment_scores) if sentiment_scores else 0
+    
+    sentiment = {
+        'positive': len([s for s in sentiment_scores if s > 0]),
+        'neutral': len([s for s in sentiment_scores if s == 0]),
+        'negative': len([s for s in sentiment_scores if s < 0]),
+        'overall': overall_sentiment
+    }
+    
+    return news, sentiment
 
-def get_ai_analysis(ticker, df, info):
-    prompt = f"""
-    Analyze the following stock data for {ticker}:
+def get_financial_metrics(stock):
+    info = stock.info
+    financials = stock.financials
+    balance_sheet = stock.balance_sheet
+    cash_flow = stock.cash_flow
+    
+    # Helper function to safely get financial data
+    def safe_get(df, row, col):
+        try:
+            return df.loc[row, col]
+        except:
+            return None
 
-    Price Data:
-    {df[['Date', 'Open', 'High', 'Low', 'Close']].tail().to_string()}
+    metrics = {
+        'Revenue': safe_get(financials, 'Total Revenue', financials.columns[0]),
+        'Net Income': safe_get(financials, 'Net Income', financials.columns[0]),
+        'EPS': info.get('trailingEps'),
+        'P/E Ratio': info.get('trailingPE'),
+        'Forward P/E': info.get('forwardPE'),
+        'PEG Ratio': info.get('pegRatio'),
+        'Price to Book': info.get('priceToBook'),
+        'Dividend Yield': info.get('dividendYield'),
+        'Debt to Equity': info.get('debtToEquity'),
+        'Free Cash Flow': safe_get(cash_flow, 'Free Cash Flow', cash_flow.columns[0]),
+        'Current Ratio': safe_get(balance_sheet, 'Current Assets', balance_sheet.columns[0]) / 
+                         safe_get(balance_sheet, 'Current Liabilities', balance_sheet.columns[0])
+                         if safe_get(balance_sheet, 'Current Liabilities', balance_sheet.columns[0]) else None,
+        'Quick Ratio': (safe_get(balance_sheet, 'Current Assets', balance_sheet.columns[0]) - 
+                        safe_get(balance_sheet, 'Inventory', balance_sheet.columns[0])) / 
+                       safe_get(balance_sheet, 'Current Liabilities', balance_sheet.columns[0])
+                       if safe_get(balance_sheet, 'Current Liabilities', balance_sheet.columns[0]) else None,
+        'ROE': info.get('returnOnEquity'),
+        'ROA': info.get('returnOnAssets'),
+        'Profit Margin': info.get('profitMargins')
+    }
+    
+    return {k: v for k, v in metrics.items() if v is not None}
+def get_financial_analysis(stock):
+    metrics = get_financial_metrics(stock)
+    
+    analysis = "Financial Analysis:\n\n"
+    for key, value in metrics.items():
+        if isinstance(value, (int, float)):
+            if abs(value) >= 1e9:
+                formatted_value = f"${value/1e9:.2f}B"
+            elif abs(value) >= 1e6:
+                formatted_value = f"${value/1e6:.2f}M"
+            else:
+                formatted_value = f"${value:.2f}"
+        else:
+            formatted_value = str(value)
+        analysis += f"{key}: {formatted_value}\n"
+    
+    return analysis
 
-    Key Statistics:
-    - Current Price: ${df['Close'].iloc[-1]:.2f}
-    - 52-Week High: ${info.get('fiftyTwoWeekHigh', 'N/A')}
-    - 52-Week Low: ${info.get('fiftyTwoWeekLow', 'N/A')}
-    - Market Cap: ${info.get('marketCap', 'N/A'):,}
-    - P/E Ratio: {info.get('trailingPE', 'N/A')}
-    - Dividend Yield: {info.get('dividendYield', 'N/A')}
-
-    Based on this information, provide a comprehensive analysis of the stock's performance, potential risks, and opportunities. Include insights on:
-    1. Recent price trends and what they might indicate
-    2. Comparison to sector performance
-    3. Key financial metrics and their implications
-    4. Potential catalysts for future price movements
-    5. Overall investment thesis (bullish, bearish, or neutral)
-
-    Provide your analysis in a clear, concise manner suitable for investors.
+def get_technical_analysis(stock):
+    history = stock.history(period="1y")
+    current_price = history['Close'].iloc[-1]
+    sma_50 = history['Close'].rolling(window=50).mean().iloc[-1]
+    sma_200 = history['Close'].rolling(window=200).mean().iloc[-1]
+    rsi = calculate_rsi(history['Close'])
+    
+    analysis = f"""
+    Technical Analysis:
+    Current Price: ${current_price:.2f}
+    50-day SMA: ${sma_50:.2f}
+    200-day SMA: ${sma_200:.2f}
+    RSI (14-day): {rsi:.2f}
+    
+    52-week High: ${history['High'].max():.2f}
+    52-week Low: ${history['Low'].min():.2f}
+    
+    Volume (10-day avg): {history['Volume'].tail(10).mean():.0f}
     """
+    return analysis
 
-    response = claude.messages.create(
-        model="claude-3-haiku-20240307",
-        max_tokens=1000,
-        messages=[
-            {"role": "user", "content": prompt}
-        ]
-    )
-    return response.content[0].text
+def get_competitor_analysis(stock):
+    info = stock.info
+    sector = info.get('sector', 'N/A')
+    industry = info.get('industry', 'N/A')
+    
+    # This is a placeholder. In a real-world scenario, you'd implement a more sophisticated competitor analysis
+    competitors = yf.Ticker(sector).info.get('componentsSymbols', [])[:5]  # Get top 5 competitors
+    
+    analysis = f"Sector: {sector}\nIndustry: {industry}\n\nTop Competitors:\n"
+    
+    for comp in competitors:
+        comp_stock = yf.Ticker(comp)
+        comp_info = comp_stock.info
+        analysis += f"""
+        {comp_info.get('longName', comp)}:
+        Market Cap: ${comp_info.get('marketCap', 'N/A'):,}
+        P/E Ratio: {comp_info.get('trailingPE', 'N/A')}
+        Revenue (TTM): ${comp_info.get('totalRevenue', 'N/A'):,}
+        
+        """
+    
+    return analysis
 
-# Callback to update charts, summary, and AI analysis
-@app.callback(
-    [Output('stock-price-chart', 'figure'),
-     Output('returns-chart', 'figure'),
-     Output('volume-chart', 'figure'),
-     Output('stock-summary', 'children'),
-     Output('ai-analysis', 'children')],
-    [Input('fetch-data-button', 'n_clicks')],
-    [State('stock-ticker-input', 'value'),
-     State('time-period-dropdown', 'value')]
-)
-def update_charts(n_clicks, ticker, period):
-    if n_clicks is None or not ticker:
-        raise PreventUpdate
-
-    df, info, error = prepare_stock_data(ticker, period)
-    if error:
-        return {}, {}, {}, f"Error: {error}", ""
-
-    # Price chart
-    price_chart = go.Figure()
-    price_chart.add_trace(go.Candlestick(x=df['Date'],
-                                         open=df['Open'],
-                                         high=df['High'],
-                                         low=df['Low'],
-                                         close=df['Close'],
-                                         name='Price'))
-    price_chart.add_trace(go.Scatter(x=df['Date'], y=df['MA_20'], name='20 Day MA'))
-    price_chart.add_trace(go.Scatter(x=df['Date'], y=df['MA_50'], name='50 Day MA'))
-    price_chart.update_layout(title=f'{ticker} Stock Price', xaxis_title='Date', yaxis_title='Price')
-
-    # Returns chart
-    returns_chart = go.Figure()
-    returns_chart.add_trace(go.Scatter(x=df['Date'], y=df['Daily_Return'], name='Daily Returns'))
-    returns_chart.add_trace(go.Scatter(x=df['Date'], y=df['Cumulative_Return'], name='Cumulative Returns'))
-    returns_chart.update_layout(title=f'{ticker} Returns', xaxis_title='Date', yaxis_title='Return')
-
-    # Volume chart
-    volume_chart = go.Figure()
-    volume_chart.add_trace(go.Bar(x=df['Date'], y=df['Volume'], name='Volume'))
-    volume_chart.update_layout(title=f'{ticker} Trading Volume', xaxis_title='Date', yaxis_title='Volume')
-
-    # Summary
-    summary = html.Div([
-        html.H4(f"Summary for {ticker}"),
-        html.P(f"Period: {period}"),
-        html.P(f"Latest Price: ${df['Close'].iloc[-1]:.2f}"),
-        html.P(f"Change: ${df['Close'].iloc[-1] - df['Open'].iloc[0]:.2f} ({((df['Close'].iloc[-1] / df['Open'].iloc[0]) - 1) * 100:.2f}%)"),
-        html.P(f"Highest Price: ${df['High'].max():.2f}"),
-        html.P(f"Lowest Price: ${df['Low'].min():.2f}"),
-        html.P(f"Average Volume: {df['Volume'].mean():.0f}"),
-        html.P(f"Market Cap: ${info.get('marketCap', 'N/A'):,}"),
-        html.P(f"P/E Ratio: {info.get('trailingPE', 'N/A')}"),
-        html.P(f"Dividend Yield: {info.get('dividendYield', 'N/A')}"),
-    ])
-
-    # AI Analysis
-    ai_analysis = get_ai_analysis(ticker, df, info)
-
-    return price_chart, returns_chart, volume_chart, summary, dcc.Markdown(ai_analysis)
-
-# Callback for chat functionality
-@app.callback(
-    Output('chat-output', 'children'),
-    [Input('chat-button', 'n_clicks')],
-    [State('chat-input', 'value'),
-     State('stock-ticker-input', 'value')]
-)
-def update_chat(n_clicks, question, ticker):
-    if n_clicks is None or not question or not ticker:
-        raise PreventUpdate
-
-    prompt = f"""
-    The user is asking about the stock {ticker}. Here's their question:
-
-    {question}
-
-    Please provide a detailed and informative answer based on the latest available information about {ticker}. 
-    Include relevant financial data, recent news, and market trends in your response. 
-    If the question requires specific numerical data that you don't have access to, explain that and provide general insights instead.
-    """
-
-    response = claude.messages.create(
-        model="claude-3-haiku-20240307",
-        max_tokens=500,
-        messages=[
-            {"role": "user", "content": prompt}
-        ]
-    )
-
-    return dcc.Markdown(response.content[0].text)
-
-# Run the app
 if __name__ == '__main__':
-    app.run_server(debug=True)
-
-#output.clear()
+    app.run(debug=True)

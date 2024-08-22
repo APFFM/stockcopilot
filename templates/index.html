@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-Powered Finance Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <header>
+        <h1>AI-Powered Finance Assistant</h1>
+        <div id="search-container">
+            <input type="text" id="ticker-input" placeholder="Enter stock ticker (e.g., AAPL)">
+            <button id="search-btn">Analyze</button>
+        </div>
+    </header>
+
+    <main id="dashboard">
+        <section id="stock-overview">
+            <h2>Stock Overview</h2>
+            <div id="stock-name"></div>
+            <div id="stock-price"></div>
+            <div id="stock-change"></div>
+            <div id="stock-volume"></div>
+            <div id="stock-market-cap"></div>
+            <div id="stock-52w-high"></div>
+            <div id="stock-52w-low"></div>
+        </section>
+
+        <section id="price-chart">
+            <h2>Price Chart</h2>
+            <canvas id="stockChart"></canvas>
+        </section>
+
+        <section id="key-metrics">
+            <h2>Key Metrics</h2>
+            <div id="metrics-content"></div>
+        </section>
+
+        <section id="technical-indicators">
+            <h2>Technical Indicators</h2>
+            <canvas id="technicalChart"></canvas>
+        </section>
+
+        <section id="sector-performance">
+            <h2>Sector Performance</h2>
+            <canvas id="sectorChart"></canvas>
+        </section>
+
+        <section id="financial-metrics">
+            <h2>Financial Metrics</h2>
+            <canvas id="metricsChart"></canvas>
+        </section>
+
+        <section id="news-sentiment">
+            <h2>News Sentiment</h2>
+            <canvas id="sentimentChart"></canvas>
+        </section>
+
+        <section id="recent-news">
+            <h2>Recent News</h2>
+            <ul class="news-list"></ul>
+        </section>
+
+        <section id="key-statistics">
+            <h2>Key Statistics</h2>
+            <table id="statistics-table"></table>
+        </section>
+
+        <section id="competitor-analysis">
+            <h2>Competitor Analysis</h2>
+            <div id="competitor-content"></div>
+        </section>
+
+        <section id="ai-analysis">
+            <h2>AI Analysis</h2>
+            <form id="ai-form">
+                <input type="text" name="ticker" placeholder="Enter stock ticker">
+                <input type="text" name="question" placeholder="Ask a question about the stock">
+                <button type="submit">Ask AI</button>
+            </form>
+            <div id="ai-response"></div>
+        </section>
+
+        <section id="full-analysis">
+            <h2>Full Analysis</h2>
+            <button id="full-analysis-btn">Get Full Analysis</button>
+            <div class="full-analysis-content"></div>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

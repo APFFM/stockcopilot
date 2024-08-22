@@ -6,12 +6,102 @@ import plotly.graph_objs as go
 import yfinance as yf
 from dash.exceptions import PreventUpdate
 import anthropic
-from dotenv import load_dotenv
 import os
 
 # Set up Claude API
 key = os.getenv("ANT")
+if key is None:
+    key = input("Enter your API key: ")
 claude = anthropic.Client(api_key=key)
+
+# Define the input window in the layout
+app.layout = dbc.Container([
+    html.H1("AI-Powered Stock Analysis Dashboard", className="my-4 text-center"),
+
+    dbc.Row([
+        dbc.Col([
+            dbc.InputGroup([
+                dbc.InputGroupText("API Key", className="input-label"),
+                dbc.Input(id='api-key-input', type='text', placeholder='Enter your API key', className='form-control mb-2'),
+            ]),
+        ], width=4),
+        dbc.Col([
+            dbc.InputGroup([
+                dbc.InputGroupText("Time Period", className="input-label"),
+                dcc.Dropdown(
+                    id='time-period-dropdown',
+                    options=[
+                        {'label': '1 Month', 'value': '1mo'},
+                        {'label': '3 Months', 'value': '3mo'},
+                        {'label': '6 Months', 'value': '6mo'},
+                        {'label': '1 Year', 'value': '1y'},
+                        {'label': '5 Years', 'value': '5y'},
+                    ],
+                    value='1mo',
+                    className='mb-2'
+                ),
+            ]),
+        ], width=4),
+        dbc.Col([
+            dbc.Button('Fetch Data', id='fetch-data-button', color='primary', className='mb-2 w-100 btn-lg'),
+        ], width=4),
+    ], className='mb-4'),
+
+    dbc.Row([
+        dbc.Col([
+            dbc.Card([
+                dbc.CardHeader("Stock Price Chart", className="text-center"),
+                dbc.CardBody(dcc.Loading(dcc.Graph(id='stock-price-chart', config={'displayModeBar': False}), type='circle'))
+            ]),
+        ], width=12),
+    ]),
+
+    dbc.Row([
+        dbc.Col([
+            dbc.Card([
+                dbc.CardHeader("Returns Chart", className="text-center"),
+                dbc.CardBody(dcc.Loading(dcc.Graph(id='returns-chart', config={'displayModeBar': False}), type='circle'))
+            ]),
+        ], width=6),
+        dbc.Col([
+            dbc.Card([
+                dbc.CardHeader("Volume Chart", className="text-center"),
+                dbc.CardBody(dcc.Loading(dcc.Graph(id='volume-chart', config={'displayModeBar': False}), type='circle'))
+            ]),
+        ], width=6),
+    ]),
+
+    dbc.Row([
+        dbc.Col([
+            dbc.Card([
+                dbc.CardHeader("Stock Summary", className="text-center"),
+                dbc.CardBody(dcc.Loading(html.Div(id='stock-summary'), type='circle')),
+            ]),
+        ], width=12),
+    ]),
+
+    dbc.Row([
+        dbc.Col([
+            dbc.Card([
+                dbc.CardHeader("AI-Powered Analysis", className="text-center"),
+                dbc.CardBody(dcc.Loading(html.Div(id='ai-analysis'), type='circle')),
+            ]),
+        ], width=12),
+    ]),
+
+    dbc.Row([
+        dbc.Col([
+            dbc.Card([
+                dbc.CardHeader("Stock Chat", className="text-center"),
+                dbc.CardBody([
+                    dcc.Input(id='chat-input', type='text', placeholder='Ask a question about the stock...', className='form-control mb-2'),
+                    dbc.Button('Ask', id='chat-button', color='success', className='mb-2 w-100 btn-lg'),
+                    html.Div(id='chat-output', className='p-3 bg-light'),
+                ]),
+            ]),
+        ], width=12),
+    ]),
+], fluid=True)
 
 # Custom CSS for enhanced styling
 custom_css = """
@@ -59,8 +149,8 @@ app.layout = dbc.Container([
     dbc.Row([
         dbc.Col([
             dbc.InputGroup([
-                dbc.InputGroupText("Stock Ticker", className="input-label"),
-                dbc.Input(id='stock-ticker-input', type='text', placeholder='Enter stock ticker (e.g., AAPL)', className='form-control mb-2'),
+                dbc.InputGroupText("API Key", className="input-label"),
+                dbc.Input(id='api-key-input', type='text', placeholder='Enter your API key', className='form-control mb-2'),
             ]),
         ], width=4),
         dbc.Col([
